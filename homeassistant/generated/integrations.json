@@ -1642,6 +1642,12 @@
       "integration_type": "virtual",
       "supported_by": "energyzero"
     },
+    "energy_owl": {
+      "name": "OWL CM160 meter",
+      "integration_type": "hub",
+      "config_flow": true,
+      "iot_class": "local_polling"
+    },
     "energyzero": {
       "name": "EnergyZero",
       "integration_type": "hub",
