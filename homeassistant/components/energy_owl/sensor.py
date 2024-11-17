@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 import logging
+import random
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -64,7 +65,9 @@ class OwmCMSensor(SensorEntity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        _LOGGER.info("Update called on %s", self)
         if self.collector is not None:
             _LOGGER.info("Update called on %s", self)
-            self._attr_native_value = self.collector.get_current()
+            if self.collector.serialdevice == "test":
+                self._attr_native_value = random.randint(0, 100) / 10.0
+            else:
+                self._attr_native_value = self.collector.get_current()
