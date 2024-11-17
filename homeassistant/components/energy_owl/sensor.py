@@ -1,27 +1,22 @@
 """Interfaces with the OWL sensors."""
 
-from collections.abc import Callable
-from dataclasses import dataclass
 import logging
 import random
+
+from owlsensor import CMDataCollector
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
-    SensorEntityDescription,
     SensorStateClass,
-    StateType,
-    datetime,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfElectricCurrent
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, OWL_OBJECT
-from owlsensor import CMDataCollector
 
 _LOGGER = logging.getLogger(__name__)
 

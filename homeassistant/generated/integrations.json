@@ -1643,7 +1643,7 @@
       "supported_by": "energyzero"
     },
     "energy_owl": {
-      "name": "OWL CM160 meter",
+      "name": "Energy Owl CM160",
       "integration_type": "hub",
       "config_flow": true,
       "iot_class": "local_polling"
