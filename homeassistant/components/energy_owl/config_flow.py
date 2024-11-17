@@ -1,64 +1,48 @@
-"""Config flow for cm160 integration."""
+"""Config flow for Monoprice 6-Zone Amplifier integration."""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
 
+from owlsensor import get_async_datacollector
+from serial import SerialException
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigFlow,
+    ConfigFlowResult,
+)
 from homeassistant.const import CONF_PORT
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN
+from .const import DOMAIN, MODEL
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_PORT): str,
-    }
-)
+DATA_SCHEMA = vol.Schema({vol.Required(CONF_PORT): str})
 
 
-class EnergyOwlHub:
-    """Hub class"""
-
-    def __init__(self, port: str) -> None:
-        """Initialize."""
-        self.port = port
-
-    async def connect(self) -> bool:
-        """Test if we can authenticate with the device."""
-        return True
-
-
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+async def validate_input(hass: HomeAssistant, data):
     """Validate the user input allows us to connect.
 
-    Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
+    Data has the keys from DATA_SCHEMA with values provided by the user.
     """
-    # TODO validate the data can be used to set up a connection.
-
-    # If your PyPI package is not built with async, pass your methods
-    # to the executor:
-    # await hass.async_add_executor_job(
-    #     your_validate_func, data[CONF_USERNAME], data[CONF_PASSWORD]
-    # )
-
-    hub = EnergyOwlHub(data[CONF_PORT])
-
-    if not await hub.connect():
-        raise CannotConnect
+    try:
+        await hass.async_add_executor_job(
+            get_async_datacollector, data[CONF_PORT], MODEL
+        )
+    except SerialException as err:
+        _LOGGER.error("Error connecting to OWL controller")
+        raise CannotConnect from err
 
     # Return info that you want to store in the config entry.
-    return {"title": "Energy OWL - CM160"}
+    return {CONF_PORT: data[CONF_PORT]}
 
 
-class ConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for cm160."""
+class OwlConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Energy OWL energy meter."""
 
     VERSION = 1
 
@@ -66,21 +50,33 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
-        errors: dict[str, str] = {}
+        errors = {}
         if user_input is not None:
             try:
                 info = await validate_input(self.hass, user_input)
+
+                return self.async_create_entry(title=user_input[CONF_PORT], data=info)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
-            else:
-                return self.async_create_entry(title=info["title"], data=user_input)
 
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+            step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
+
+
+@callback
+def _key_for_source(index, source, previous_sources):
+    if str(index) in previous_sources:
+        key = vol.Optional(
+            source, description={"suggested_value": previous_sources[str(index)]}
+        )
+    else:
+        key = vol.Optional(source)
+
+    return key
 
 
 class CannotConnect(HomeAssistantError):

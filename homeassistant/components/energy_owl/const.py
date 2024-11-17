@@ -1,5 +1,11 @@
-"""Constants for the cm160 integration."""
+"""Constants for the Energy OWL CM160 energy sensor component."""
 
 DOMAIN = "energy_owl"
-DEFAULT_SCAN_INTERVAL = 60
-MIN_SCAN_INTERVAL = 10
+
+CONF_NOT_FIRST_RUN = "not_first_run"
+
+FIRST_RUN = "first_run"
+OWL_OBJECT = "owl_object"
+UNDO_UPDATE_LISTENER = "update_update_listener"
+
+MODEL = "CM160"

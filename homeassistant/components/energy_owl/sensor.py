@@ -1,11 +1,16 @@
-"""Interfaces with the Integration 101 Template api sensors."""
+"""Interfaces with the OWL sensors."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
 import logging
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
+    SensorEntityDescription,
     SensorStateClass,
+    StateType,
+    datetime,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfElectricCurrent
@@ -14,9 +19,8 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import Device, DeviceType
-from .const import DOMAIN
-from .coordinator import ExampleCoordinator
+from .const import DOMAIN, OWL_OBJECT
+from owlsensor import CMDataCollector
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,103 +29,42 @@ async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-):
+) -> None:
     """Set up the Sensors."""
     # This gets the data update coordinator from hass.data as specified in your __init__.py
-    coordinator: ExampleCoordinator = hass.data[DOMAIN][
-        config_entry.entry_id
-    ].coordinator
+    collector: CMDataCollector = hass.data[DOMAIN][config_entry.entry_id][OWL_OBJECT]
 
-    # Enumerate all the sensors in your data value from your DataUpdateCoordinator and add an instance of your sensor class
-    # to a list for each one.
-    # This maybe different in your specific case, depending on how your data is structured
-    sensors = [
-        CMSensor(coordinator, device)
-        for device in coordinator.data.devices
-        if device.device_type == DeviceType.CM160_I
-    ]
+    if collector is None:
+        _LOGGER.error("Missing coordinator")
+
+    sensors = [OwmCMSensor(collector)]
 
     # Create the sensors.
     async_add_entities(sensors)
 
+    await collector.connect()
 
-class CMSensor(CoordinatorEntity, SensorEntity):
-    """Implementation of a sensor."""
 
-    def __init__(self, coordinator: ExampleCoordinator, device: Device) -> None:
-        """Initialise sensor."""
-        super().__init__(coordinator)
-        self.device = device
-        self.device_id = device.device_id
+class OwmCMSensor(SensorEntity):
+    """Representation of a Sensor."""
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Update sensor with latest data from coordinator."""
-        # This method is called by your DataUpdateCoordinator when a successful update runs.
-        self.device = self.coordinator.get_device_by_id(
-            self.device.device_type, self.device_id
-        )
-        _LOGGER.debug("Device: %s", self.device)
-        self.async_write_ha_state()
+    _attr_name = "CM160 - Current"
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
+    _attr_device_class = SensorDeviceClass.CURRENT
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-    @property
-    def device_class(self) -> str:
-        """Return device class."""
-        # https://developers.home-assistant.io/docs/core/entity/sensor/#available-device-classes
-        return SensorDeviceClass.CURRENT
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information."""
-        # Identifiers are what group entities into the same device.
-        # If your device is created elsewhere, you can just specify the indentifiers parameter.
-        # If your device connects via another device, add via_device parameter with the indentifiers of that device.
-        return DeviceInfo(
-            name=f"Owl_CM160_{self.device.device_id}",
-            manufacturer="Energy OWL",
-            model="CM160",
-            identifiers={
-                (
-                    DOMAIN,
-                    f"{self.coordinator.data.controller_name}-{self.device.device_id}",
-                )
-            },
+    def __init__(self, collector: CMDataCollector):
+        self.collector = collector
+        self._attr_device_info = DeviceInfo(
+            manufacturer="Energy OWL", model="CM160", name="CM160"
         )
 
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self.device.name
+    def update(self) -> None:
+        """Fetch new state data for the sensor.
 
-    @property
-    def native_value(self) -> int | float:
-        """Return the state of the entity."""
-        # Using native value and native unit of measurement, allows you to change units
-        # in Lovelace and HA will automatically calculate the correct value.
-        return float(self.device.state)
-
-    @property
-    def native_unit_of_measurement(self) -> str | None:
-        """Return unit of temperature."""
-        return UnitOfElectricCurrent.AMPERE
-
-    @property
-    def state_class(self) -> str | None:
-        """Return state class."""
-        # https://developers.home-assistant.io/docs/core/entity/sensor/#available-state-classes
-        return SensorStateClass.MEASUREMENT
-
-    @property
-    def unique_id(self) -> str:
-        """Return unique id."""
-        # All entities must have a unique id.  Think carefully what you want this to be as
-        # changing it later will cause HA to create new entities.
-        return f"{DOMAIN}-{self.device.device_unique_id}"
-
-    @property
-    def extra_state_attributes(self):
-        """Return the extra state attributes."""
-        # Add any additional attributes you want on your sensor.
-        attrs = {}
-        # attrs["extra_info"] = "Extra Info"
-        return attrs
+        This is the only method that should fetch new data for Home Assistant.
+        """
+        _LOGGER.info("Update called on %s", self)
+        if self.collector is not None:
+            _LOGGER.info("Update called on %s", self)
+            self._attr_native_value = self.collector.get_current()

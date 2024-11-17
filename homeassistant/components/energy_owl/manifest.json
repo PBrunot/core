@@ -1,13 +1,10 @@
 {
   "domain": "energy_owl",
-  "name": "OWL CM160 meter",
+  "name": "Energy Owl CM160",
   "codeowners": ["@PBrunot"],
   "config_flow": true,
-  "dependencies": [],
   "documentation": "https://www.home-assistant.io/integrations/energy_owl",
-  "homekit": {},
   "iot_class": "local_polling",
-  "requirements": ["owlsensor==0.2"],
-  "ssdp": [],
-  "zeroconf": []
+  "loggers": ["owlsensor"],
+  "requirements": ["owlsensor==0.3.7"]
 }
